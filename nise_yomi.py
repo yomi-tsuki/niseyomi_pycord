@@ -1,11 +1,13 @@
 import discord
 from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from dotenv import load_dotenv
 import os
+
+# TimezoneをUTC+9に設定
+utc_tz = timedelta(hours=9)
 
 #envから読み込み
 load_dotenv()
@@ -65,7 +67,7 @@ class EventModal(discord.ui.Modal):
         try:
             scheduled_time = datetime.strptime(
                 scheduled_time_str, "%Y-%m-%d %H:%M"
-                )
+                ) + utc_tz
         except ValueError:
             await interaction.response.send_message(
                 "日時の形式が正しくありません。"
