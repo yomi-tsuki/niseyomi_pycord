@@ -22,8 +22,8 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # スケジューラーのインスタンスを作成
 scheduler = AsyncIOScheduler()
 
-# JSTタイムゾーンの定義
-JST = pytz.timezone('Asia/Tokyo')
+# UTCタイムゾーンの定義
+UTC = pytz.utc
 
 # スケジューラーが既に実行中でないかチェック
 if not scheduler.running:
@@ -67,7 +67,7 @@ class EventModal(discord.ui.Modal):
         try:
             scheduled_time = datetime.strptime(
                 scheduled_time_str, "%Y-%m-%d %H:%M"
-                ).replace(tzinfo=pytz.utc).astimezone(JST)  # 入力された日時をJSTに変換
+                ).replace(tzinfo=UTC)  # 入力された日時をUTCに変換
         except ValueError:
             await interaction.response.send_message(
                 "日時の形式が正しくありません。"
@@ -75,7 +75,7 @@ class EventModal(discord.ui.Modal):
             return
 
         # 入力された日時が現在の日時よりも過去であるかチェック
-        if scheduled_time <= datetime.now(JST):
+        if scheduled_time <= datetime.now(UTC):
             await interaction.response.send_message(
                 "指定された日時は現在の日時よりも過去です。"
                 )
@@ -146,7 +146,7 @@ async def on_message(message):
             # メッセージリンクのフィールドを追加
             embed.add_field(name="メッセージリンク", value=target_message.jump_url, inline=False)
             # チャンネルと日時のフィールドを追加
-            channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {target_message.created_at.astimezone(JST).strftime('%Y-%m-%d %H:%M:%S')}"  # JSTに変換
+            channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {target_message.created_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M:%S')}"  # UTCに変換
             embed.add_field(name="情報", value=channel_time_text, inline=False)
 
             # ボタンコンポーネントを使ったViewオブジェクトを作成
