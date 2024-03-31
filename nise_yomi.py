@@ -67,7 +67,7 @@ class EventModal(discord.ui.Modal):
         try:
             scheduled_time = datetime.strptime(
                 scheduled_time_str, "%Y-%m-%d %H:%M"
-                ).replace(tzinfo=JST)  # JSTに変換
+                ).replace(tzinfo=pytz.utc).astimezone(JST)  # 入力された日時をJSTに変換
         except ValueError:
             await interaction.response.send_message(
                 "日時の形式が正しくありません。"
