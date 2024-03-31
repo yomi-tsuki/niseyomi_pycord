@@ -5,8 +5,9 @@ from datetime import datetime
 import re
 from dotenv import load_dotenv
 import os
+import pytz  # 追加
 
-#envから読み込み
+# envから読み込み
 load_dotenv()
 
 # 環境変数からトークンを取得
@@ -63,10 +64,17 @@ class EventModal(discord.ui.Modal):
         try:
             scheduled_time = datetime.strptime(
                 scheduled_time_str, "%Y-%m-%d %H:%M"
-                )
+                ).replace(tzinfo=pytz.utc).astimezone(pytz.timezone('Asia/Tokyo'))  # 日本時間に変換
         except ValueError:
             await interaction.response.send_message(
                 "日時の形式が正しくありません。"
+                )
+            return
+
+        # 入力された日時が現在の日時よりも過去であるかチェック
+        if scheduled_time <= datetime.now(pytz.timezone('Asia/Tokyo')):
+            await interaction.response.send_message(
+                "指定された日時は現在の日時よりも過去です。"
                 )
             return
 
@@ -133,14 +141,14 @@ async def on_message(message):
             embed.set_author(name=target_message.author.display_name, icon_url=target_message.author.avatar.url)
 
             # メッセージリンクのフィールドを追加
-            embed.add_field(name="メッセージリンク", value=message.jump_url, inline=False)
+            embed.add_field(name="メッセージリンク", value=target_message.jump_url, inline=False)
             # チャンネルと日時のフィールドを追加
             channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {target_message.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
             embed.add_field(name="情報", value=channel_time_text, inline=False)
 
             # ボタンコンポーネントを使ったViewオブジェクトを作成
             view = discord.ui.View(timeout=None)
-            view.add_item(discord.ui.Button(label="メッセージ先はこちら", style=discord.ButtonStyle.link, url=message.jump_url))
+            view.add_item(discord.ui.Button(label="メッセージ先はこちら", style=discord.ButtonStyle.link, url=target_message.jump_url))  # 修正
 
             # リンク元に画像がある場合、画像のURLをフィールドとして追加
             if target_message.attachments:
