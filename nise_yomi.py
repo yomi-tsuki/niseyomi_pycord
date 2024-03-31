@@ -144,7 +144,7 @@ async def on_message(message):
             embed.set_author(name=target_message.author.display_name, icon_url=target_message.author.avatar.url)
 
             # メッセージリンクのフィールドを追加
-            embed.add_field(name="メッセージリンク", value=message.jump_url, inline=False)
+            embed.add_field(name="メッセージリンク", value=target_message.jump_url, inline=False)
             # チャンネルと日時のフィールドを追加
             channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {target_message.created_at.astimezone(JST).strftime('%Y-%m-%d %H:%M:%S')}"  # JSTに変換
             embed.add_field(name="情報", value=channel_time_text, inline=False)
