@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 import re
 from dotenv import load_dotenv
 import os
+from pytz import timezone
 
-# TimezoneをUTC+9に設定
-utc_tz = timedelta(hours=9)
+# 日本時間のタイムゾーンを取得
+jst_tz = timezone('Asia/Tokyo')
 
 #envから読み込み
 load_dotenv()
@@ -120,7 +121,9 @@ async def event(
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} がオンラインになりました。')
+    # 現在の日本時間を取得
+    jst_time = datetime.now(jst_tz)
+    print(f'{bot.user.name} が 日本時間: {jst_time.strftime("%Y-%m-%d %H:%M:%S")} にオンラインになりました。')
 
 @bot.event
 async def on_message(message):
@@ -138,8 +141,15 @@ async def on_message(message):
 
             # メッセージリンクのフィールドを追加
             embed.add_field(name="メッセージリンク", value=target_message.jump_url, inline=False)
+
+            # 日本時間のタイムゾーンを取得
+            jst_tz = timezone('Asia/Tokyo')
+
+            # メッセージの作成日時をUTCから日本時間に変換
+            jst_created_at = target_message.created_at.astimezone(jst_tz)
+
             # チャンネルと日時のフィールドを追加
-            channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {target_message.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+            channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {jst_created_at.strftime('%Y-%m-%d %H:%M:%S')}"
             embed.add_field(name="情報", value=channel_time_text, inline=False)
 
             # ボタンコンポーネントを使ったViewオブジェクトを作成
