@@ -1,13 +1,13 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from datetime import datetime, timedelta
 import pytz
+from datetime import datetime
 import re
 from dotenv import load_dotenv
 import os
 
-# envから読み込み
+#envから読み込み
 load_dotenv()
 
 # 環境変数からトークンを取得
@@ -20,10 +20,6 @@ intents.message_content = True
 # bot
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# タイムゾーンの設定
-JST = pytz.timezone('Asia/Tokyo')  # 日本時間を表すタイムゾーンオブジェクト
-UTC = pytz.utc  # UTCタイムゾーンオブジェクト
-
 # スケジューラーのインスタンスを作成
 scheduler = AsyncIOScheduler()
 
@@ -31,13 +27,11 @@ scheduler = AsyncIOScheduler()
 if not scheduler.running:
     scheduler.start()
 
-
 # メッセージリンクの正規表現パターン
 message_link_pattern = re.compile(r'https://discord\.com/channels/(\d+)/(\d+)/(\d+)')
 
 # 埋め込みメッセージの辞書 {original_message_id: embed_message}
 embed_messages = {}
-
 
 class EventModal(discord.ui.Modal):
     def __init__(
@@ -72,17 +66,9 @@ class EventModal(discord.ui.Modal):
             scheduled_time = datetime.strptime(
                 scheduled_time_str, "%Y-%m-%d %H:%M"
                 )
-            scheduled_time_utc = scheduled_time.astimezone(UTC)  # 入力された日時をUTCに変換
         except ValueError:
             await interaction.response.send_message(
                 "日時の形式が正しくありません。"
-                )
-            return
-
-        # 入力された日時が現在の日時よりも過去であるかチェック
-        if scheduled_time_utc <= datetime.now(UTC):
-            await interaction.response.send_message(
-                "指定された日時は現在の日時よりも過去です。"
                 )
             return
 
@@ -114,7 +100,7 @@ class EventModal(discord.ui.Modal):
                 print(f"チャンネルID {self.channel_id} が見つかりませんでした。")
 
         # スケジューラーにジョブを追加
-        job = scheduler.add_job(send_scheduled_message, 'date', run_date=scheduled_time_utc)
+        job = scheduler.add_job(send_scheduled_message, 'date', run_date=scheduled_time)
 
         # レスポンスを送信
         await interaction.response.send_message(
