@@ -10,7 +10,7 @@ from pytz import timezone
 # 日本時間のタイムゾーンを取得
 jst_tz = timezone('Asia/Tokyo')
 
-#envから読み込み
+# envから読み込み
 load_dotenv()
 
 # 環境変数からトークンを取得
@@ -20,7 +20,7 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 
-# bot
+# botのインスタンスを作成
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # スケジューラーのインスタンスを作成
@@ -37,26 +37,14 @@ message_link_pattern = re.compile(r'https://discord\.com/channels/(\d+)/(\d+)/(\
 embed_messages = {}
 
 class EventModal(discord.ui.Modal):
-    def __init__(
-            self, channel_id
-            ):
-        super().__init__(
-            title="スケジュール入力"
-            )
+    def __init__(self, channel_id):
+        super().__init__(title="スケジュール入力")
         self.channel_id = channel_id
 
-        self.add_item(discord.ui.InputText(
-            label="メッセージ（メンション可）", placeholder="MM/DDは固定予定日です @here @everyone"
-            ))
-        self.add_item(discord.ui.InputText(
-            label="活動詳細", placeholder="目的フェーズとか"
-            ))
-        self.add_item(discord.ui.InputText(
-            label="予定時間", placeholder="hh:dd～hh:dd"
-            ))
-        self.add_item(discord.ui.InputText(
-            label="送信日時（※書式厳守※）", placeholder="YYYY-MM-DD HH:MM"
-            ))
+        self.add_item(discord.ui.InputText(label="メッセージ（メンション可）", placeholder="MM/DDは固定予定日です @here @everyone"))
+        self.add_item(discord.ui.InputText(label="活動詳細", placeholder="目的フェーズとか"))
+        self.add_item(discord.ui.InputText(label="予定時間", placeholder="hh:dd～hh:dd"))
+        self.add_item(discord.ui.InputText(label="送信日時（※書式厳守※）", placeholder="YYYY-MM-DD HH:MM"))
 
     async def callback(self, interaction: discord.Interaction):
         event_name = self.children[0].value
@@ -66,33 +54,24 @@ class EventModal(discord.ui.Modal):
 
         # 日時とチャンネルIDのバリデーション
         try:
-            scheduled_time = datetime.strptime(
-                scheduled_time_str, "%Y-%m-%d %H:%M"
-                ) + utc_tz
+            # ユーザーが入力した日時を日本時間として扱う
+            scheduled_time = datetime.strptime(scheduled_time_str, "%Y-%m-%d %H:%M")
+            scheduled_time = scheduled_time.astimezone(jst_tz)
+            
+            # スケジュールされた時間を12時間早める
+            scheduled_time -= timedelta(hours=12)
         except ValueError:
-            await interaction.response.send_message(
-                "日時の形式が正しくありません。"
-                )
+            await interaction.response.send_message("日時の形式が正しくありません。")
             return
 
         # Embedを作成してAuthorの名前とアイコンは適当に指定、活動詳細と予定時間を表示する
-        embed = discord.Embed(
-            title="固定活動日", description=None, color=discord.Colour.yellow()
-            )
-        embed.set_author(
-            name="絶ちんちろ予定通知", icon_url="https://cdn.discordapp.com/attachments/572675376405544983/1221509604731519006/download20240301004917.png?ex=6612d678&is=66006178&hm=9a4997cf7799c975a74737e2787fbdaebcb739615a3098bb6125f59b6f31c879&"
-            )
-        embed.add_field(
-            name="活動詳細", value=event_details, inline=False
-            )
-        embed.add_field(
-            name="予定時間", value=additional_comments, inline=False
-            )
-        
+        embed = discord.Embed(title="固定活動日", description=None, color=discord.Colour.yellow())
+        embed.set_author(name="予定通知", icon_url="https://cdn.discordapp.com/attachments/572675376405544983/1221509604731519006/download20240301004917.png")
+        embed.add_field(name="活動詳細", value=event_details, inline=False)
+        embed.add_field(name="予定時間", value=additional_comments, inline=False)
+
         # AllowedMentionsオブジェクトを作成
-        allowed_mentions = discord.AllowedMentions(
-            everyone=True
-            )
+        allowed_mentions = discord.AllowedMentions(everyone=True)
 
         # スケジュールされたメッセージを送信する関数を定義
         async def send_scheduled_message():
@@ -103,27 +82,15 @@ class EventModal(discord.ui.Modal):
                 print(f"チャンネルID {self.channel_id} が見つかりませんでした。")
 
         # スケジューラーにジョブを追加
-        job = scheduler.add_job(send_scheduled_message, 'date', run_date=scheduled_time)
+        scheduler.add_job(send_scheduled_message, 'date', run_date=scheduled_time)
 
         # レスポンスを送信
-        await interaction.response.send_message(
-            f"メッセージ: {event_name}\nリマインドは{scheduled_time_str}に<#{self.channel_id}>に送信されます。"
-            )
+        await interaction.response.send_message(f"メッセージ: {event_name}\nリマインドは{scheduled_time.strftime('%Y-%m-%d %H:%M')}に<#{self.channel_id}>に送信されます。")
 
-@bot.slash_command(
-        name="event", description="スケジュール作成画面を表示します"
-        )
-async def event(
-    ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "チャンネルを選択してください")
-    ):
+@bot.slash_command(name="event", description="スケジュール作成画面を表示します")
+async def event(ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "チャンネルを選択してください")):
     modal = EventModal(channel.id)
     await ctx.send_modal(modal)
-
-@bot.event
-async def on_ready():
-    # 現在の日本時間を取得
-    jst_time = datetime.now(jst_tz)
-    print(f'{bot.user.name} が 日本時間: {jst_time.strftime("%Y-%m-%d %H:%M:%S")} にオンラインになりました。')
 
 @bot.event
 async def on_message(message):
@@ -142,14 +109,8 @@ async def on_message(message):
             # メッセージリンクのフィールドを追加
             embed.add_field(name="メッセージリンク", value=target_message.jump_url, inline=False)
 
-            # 日本時間のタイムゾーンを取得
-            jst_tz = timezone('Asia/Tokyo')
-
-            # メッセージの作成日時をUTCから日本時間に変換
-            jst_created_at = target_message.created_at.astimezone(jst_tz)
-
             # チャンネルと日時のフィールドを追加
-            channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {jst_created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+            channel_time_text = f"チャンネル: #{target_channel.name} | 日時: {target_message.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
             embed.add_field(name="情報", value=channel_time_text, inline=False)
 
             # ボタンコンポーネントを使ったViewオブジェクトを作成
@@ -168,7 +129,7 @@ async def on_message(message):
             embed_messages[message.id] = embed_message
         except discord.NotFound:
             await message.channel.send('メッセージが見つかりませんでした。')
-            await bot.process_commands(message)
+        await bot.process_commands(message)
 
 @bot.event
 async def on_message_delete(deleted_message):
@@ -178,6 +139,12 @@ async def on_message_delete(deleted_message):
         await embed_messages[deleted_message.id].delete()
         # 辞書から削除
         del embed_messages[deleted_message.id]
+
+@bot.event
+async def on_ready():
+    # 現在の日本時間を取得
+    jst_time = datetime.now(jst_tz)
+    print(f'{bot.user.name} が 日本時間: {jst_time.strftime("%Y-%m-%d %H:%M:%S")} にオンラインになりました。')
 
 # トークンを使用してBOTを起動
 bot.run(TOKEN)
