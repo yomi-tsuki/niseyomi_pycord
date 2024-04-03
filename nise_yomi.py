@@ -140,6 +140,80 @@ async def on_message_delete(deleted_message):
         # 辞書から削除
         del embed_messages[deleted_message.id]
 
+# URLを検出する関数
+def contains_url(message, domain):
+    return any(domain in word for word in message.content.split())
+
+# URLを変換する関数
+def convert_url(message):
+    words = message.content.split()
+    new_words = []
+    for word in words:
+        # 'https://vxtwitter.com'が既に含まれている場合は変換しない
+        if 'https://twitter.com/' in word and 'https://vxtwitter.com/' not in word:
+            new_word = word.replace('https://twitter.com/', 'https://vxtwitter.com/')
+            new_words.append(new_word)
+        elif 'https://x.com/' in word and 'https://vxtwitter.com/' not in word:
+            new_word = word.replace('https://x.com/', 'https://vxtwitter.com/')
+            new_words.append(new_word)
+        else:
+            new_words.append(word)
+    return ' '.join(new_words)
+
+# メッセージイベントリスナー
+@bot.event
+async def on_message(message):
+    # ボット自身のメッセージは無視する
+    if message.author == bot.user:
+        return
+
+    # メッセージにtwitter.comまたはx.comのURLが含まれているか確認
+    if contains_url(message, 'https://twitter.com/') or contains_url(message, 'https://x.com/'):
+        # Embedを削除しようと試みる
+        try:
+            await message.edit(suppress=True)
+            print(f"Embed removed from message: {message.content}")
+        except discord.errors.Forbidden:
+            print("Bot does not have permission to edit message.")
+        except discord.errors.NotFound:
+            print("Message not found.")
+        except discord.errors.HTTPException as e:
+            print(f"Failed to remove embed: {e}")
+
+        # URLを変換して返信する
+        converted_message = convert_url(message)
+        # メンションせずにメッセージを送信する
+        reply_message = await message.reply(converted_message, mention_author=False)
+        # 返信のIDを記録する
+        message_reply_map[message.id] = reply_message.id
+        print(f"Replied with converted URL without mentioning the author: {converted_message}")
+
+    # 他のコマンドを処理
+    await bot.process_commands(message)
+
+# グローバル変数としてmessage_reply_mapを定義
+message_reply_map = {}
+
+# メッセージ削除イベントリスナー
+@bot.event
+async def on_message_delete(deleted_message):
+    global message_reply_ma
+    # 削除されたメッセージに対するBotの返信があるか確認
+    if deleted_message.id in message_reply_map:
+        # Botの返信を取得
+        reply_message_id = message_reply_map[deleted_message.id]
+        # Botの返信を削除する
+        try:
+            reply_message = await deleted_message.channel.fetch_message(reply_message_id)
+            await reply_message.delete()
+            print(f"Bot's reply message deleted: {reply_message.content}")
+        except discord.errors.NotFound:
+            print("Bot's reply message not found.")
+        except discord.errors.HTTPException as e:
+            print(f"Failed to delete Bot's reply message: {e}")
+        # 辞書からエントリを削除
+        del message_reply_map[deleted_message.id]
+
 @bot.event
 async def on_ready():
     # 現在の日本時間を取得
