@@ -1,9 +1,11 @@
 import discord
 from discord.ext import commands
 from discord.commands import Option
+from discord import Option, slash_command
+from discord.utils import escape_markdown, get
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timedelta
-import re
+import re, asyncio
 from dotenv import load_dotenv
 import os
 from pytz import timezone
@@ -228,18 +230,31 @@ def escape_markdown(text):
         text = text.replace(char, f'\\{char}')
     return text
 
-# 特定のユーザーのメッセージの一括削除機能。サーバーに所属していれば選択肢に、脱退済みのメンバーの場合はIDを指定することが出来る。
-@bot.slash_command(name="delete_user_messages", description="特定のユーザーのメッセージを削除します")
-async def delete_user_messages(ctx, user: Option(discord.User, "ユーザーを選択")):
-    # コマンドを実行しようとしているユーザーが管理者権限を持っているか確認
+# 下記はサーバーに所属していればユーザー選択可。脱退者についてはユーザーIDでの指定必須。
+# 指定ユーザーのメッセージ一括削除。指定チャンネル。
+@bot.slash_command(name="delete_messages", description="特定のチャンネルのユーザーのメッセージを削除します")
+async def delete_messages(ctx, user: Option(discord.User, "ユーザーを選択/ユーザーIDを指定"), channel: Option(discord.TextChannel, "チャンネルを選択")):
     if ctx.author.guild_permissions.administrator:
         def is_user(m):
             return m.author == user
 
-        deleted = await ctx.channel.purge(check=is_user)
-        # ユーザー名をエスケープしてからメッセージを送信
-        escaped_user_name = escape_markdown(user.name)
-        await ctx.respond(f'{escaped_user_name}のメッセージを削除しました。', ephemeral=True)
+        deleted = await channel.purge(check=is_user)
+        await ctx.respond(f'{channel.mention}から{escape_markdown(user.name)}のメッセージを{len(deleted)}件削除しました。', ephemeral=True)
+    else:
+        await ctx.respond("この機能は管理者権限が必要です。", ephemeral=True)
+
+# 指定ユーザーのメッセージ一括削除。全チャンネル。
+@bot.slash_command(name="delete_messages_all", description="全てのチャンネルのユーザーのメッセージを削除します")
+async def delete_messages_all(ctx, user: Option(discord.User, "ユーザーを選択/ユーザーIDを指定")):
+    if ctx.author.guild_permissions.administrator:
+        def is_user(m):
+            return m.author == user
+        await ctx.defer(ephemeral=True)
+        deleted_messages = 0
+        for channel in ctx.guild.text_channels:
+            deleted = await channel.purge(check=is_user)
+            deleted_messages += len(deleted)
+        await ctx.followup.send(f'全てのチャンネルから{escape_markdown(user.name)}のメッセージを{deleted_messages}件削除しました。')
     else:
         await ctx.respond("この機能は管理者権限が必要です。", ephemeral=True)
 
