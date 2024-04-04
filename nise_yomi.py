@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord.commands import Option
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timedelta
 import re
@@ -213,6 +214,21 @@ async def on_message_delete(deleted_message):
             print(f"Failed to delete Bot's reply message: {e}")
         # 辞書からエントリを削除
         del message_reply_map[deleted_message.id]
+
+# 辞書のキーを大文字小文字を区別する形で登録
+websites = {
+    "FF14Lodestone": "https://jp.finalfantasyxiv.com/lodestone/",
+    "Eorzean": "https://www.eorzean.info/"
+}
+
+@bot.slash_command(name="website", description="指定されたWebサイトのURLを返信します")
+async def website(ctx, site: Option(str, "選択するWebサイト", choices=list(websites.keys()))):
+    # キーが辞書に存在するか確認する
+    if site in websites:
+        await ctx.respond(f"選択されたWebサイトのURLです。\n##  {site}: {websites[site]}")
+    else:
+        # キーが存在しない場合はエラーメッセージを返す
+        await ctx.respond(f"選択されたWebサイト '{site}' はKeyに登録されていません。")
 
 @bot.event
 async def on_ready():
