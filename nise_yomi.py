@@ -95,6 +95,27 @@ async def event(ctx: discord.ApplicationContext, channel: discord.Option(discord
 
 @bot.event
 async def on_message(message):
+    # メッセージにtwitter.comまたはx.comのURLが含まれているか確認
+    if contains_url(message, 'https://twitter.com/') or contains_url(message, 'https://x.com/'):
+        # Embedを削除しようと試みる
+        try:
+            await message.edit(suppress=True)
+            print(f"Embed removed from message: {message.content}")
+        except discord.errors.Forbidden:
+            print("Bot does not have permission to edit message.")
+        except discord.errors.NotFound:
+            print("Message not found.")
+        except discord.errors.HTTPException as e:
+            print(f"Failed to remove embed: {e}")
+
+        # URLを変換して返信する
+        converted_message = convert_url(message)
+        # メンションせずにメッセージを送信する
+        reply_message = await message.reply(converted_message, mention_author=False)
+        # 返信のIDを記録する
+        message_reply_map[message.id] = reply_message.id
+        print(f"Replied with converted URL without mentioning the author: {converted_message}")
+
     # メッセージリンクが含まれているかチェック
     match = message_link_pattern.search(message.content)
     if match:
@@ -129,17 +150,10 @@ async def on_message(message):
             # 辞書に追加
             embed_messages[message.id] = embed_message
         except discord.NotFound:
-            await message.channel.send('メッセージが見つかりませんでした。')
+            await message.channel.send('メッセージが見つかりませんでした.')
+    else:
+        # 他のコマンドを処理
         await bot.process_commands(message)
-
-@bot.event
-async def on_message_delete(deleted_message):
-    # 削除されたメッセージが埋め込みメッセージの元であるかチェック
-    if deleted_message.id in embed_messages:
-        # 対応する埋め込みメッセージを削除
-        await embed_messages[deleted_message.id].delete()
-        # 辞書から削除
-        del embed_messages[deleted_message.id]
 
 # URLを検出する関数
 def contains_url(message, domain):
@@ -161,44 +175,20 @@ def convert_url(message):
             new_words.append(word)
     return ' '.join(new_words)
 
-# メッセージイベントリスナー
-@bot.event
-async def on_message(message):
-    # ボット自身のメッセージは無視する
-    if message.author == bot.user:
-        return
-
-    # メッセージにtwitter.comまたはx.comのURLが含まれているか確認
-    if contains_url(message, 'https://twitter.com/') or contains_url(message, 'https://x.com/'):
-        # Embedを削除しようと試みる
-        try:
-            await message.edit(suppress=True)
-            print(f"Embed removed from message: {message.content}")
-        except discord.errors.Forbidden:
-            print("Bot does not have permission to edit message.")
-        except discord.errors.NotFound:
-            print("Message not found.")
-        except discord.errors.HTTPException as e:
-            print(f"Failed to remove embed: {e}")
-
-        # URLを変換して返信する
-        converted_message = convert_url(message)
-        # メンションせずにメッセージを送信する
-        reply_message = await message.reply(converted_message, mention_author=False)
-        # 返信のIDを記録する
-        message_reply_map[message.id] = reply_message.id
-        print(f"Replied with converted URL without mentioning the author: {converted_message}")
-
-    # 他のコマンドを処理
-    await bot.process_commands(message)
-
 # グローバル変数としてmessage_reply_mapを定義
 message_reply_map = {}
 
 # メッセージ削除イベントリスナー
 @bot.event
 async def on_message_delete(deleted_message):
-    global message_reply_ma
+    # 削除されたメッセージが埋め込みメッセージの元であるかチェック
+    if deleted_message.id in embed_messages:
+        # 対応する埋め込みメッセージを削除
+        await embed_messages[deleted_message.id].delete()
+        # 辞書から削除
+        del embed_messages[deleted_message.id]
+
+    global message_reply_map
     # 削除されたメッセージに対するBotの返信があるか確認
     if deleted_message.id in message_reply_map:
         # Botの返信を取得
@@ -229,6 +219,29 @@ async def website(ctx, site: Option(str, "選択するWebサイト", choices=lis
     else:
         # キーが存在しない場合はエラーメッセージを返す
         await ctx.respond(f"選択されたWebサイト '{site}' はKeyに登録されていません。")
+
+# ユーザー名に含まれるMarkdown特殊文字をエスケープする関数
+def escape_markdown(text):
+    # Markdownの特殊文字をエスケープする
+    escape_characters = ['*', '_', '`', '~']
+    for char in escape_characters:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+# 特定のユーザーのメッセージの一括削除機能。サーバーに所属していれば選択肢に、脱退済みのメンバーの場合はIDを指定することが出来る。
+@bot.slash_command(name="delete_user_messages", description="特定のユーザーのメッセージを削除します")
+async def delete_user_messages(ctx, user: Option(discord.User, "ユーザーを選択")):
+    # コマンドを実行しようとしているユーザーが管理者権限を持っているか確認
+    if ctx.author.guild_permissions.administrator:
+        def is_user(m):
+            return m.author == user
+
+        deleted = await ctx.channel.purge(check=is_user)
+        # ユーザー名をエスケープしてからメッセージを送信
+        escaped_user_name = escape_markdown(user.name)
+        await ctx.respond(f'{escaped_user_name}のメッセージを削除しました。', ephemeral=True)
+    else:
+        await ctx.respond("この機能は管理者権限が必要です。", ephemeral=True)
 
 @bot.event
 async def on_ready():
