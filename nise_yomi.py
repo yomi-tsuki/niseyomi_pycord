@@ -91,7 +91,7 @@ class EventModal(discord.ui.Modal):
         await interaction.response.send_message(f"メッセージ: {event_name}\nリマインドは{scheduled_time.strftime('%Y-%m-%d %H:%M')}に<#{self.channel_id}>に送信されます。")
 
 @bot.slash_command(name="event", description="スケジュール作成画面を表示します")
-async def event(ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "チャンネルを選択してください")):
+async def event(ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "チャンネルを選択してください")): # type: ignore
     modal = EventModal(channel.id)
     await ctx.send_modal(modal)
 
@@ -214,7 +214,7 @@ websites = {
 }
 
 @bot.slash_command(name="website", description="指定されたWebサイトのURLを返信します")
-async def website(ctx, site: Option(str, "選択するWebサイト", choices=list(websites.keys()))):
+async def website(ctx, site: Option(str, "選択するWebサイト", choices=list(websites.keys()))): # type: ignore
     # キーが辞書に存在するか確認する
     if site in websites:
         await ctx.respond(f"選択されたWebサイトのURLです。\n##  {site}: {websites[site]}")
@@ -233,7 +233,7 @@ def escape_markdown(text):
 # 下記はサーバーに所属していればユーザー選択可。脱退者についてはユーザーIDでの指定必須。
 # 指定ユーザーのメッセージ一括削除。指定チャンネル。
 @bot.slash_command(name="delete_messages", description="特定のチャンネルのユーザーのメッセージを削除します")
-async def delete_messages(ctx, user: Option(discord.User, "ユーザーを選択/ユーザーIDを指定"), channel: Option(discord.TextChannel, "チャンネルを選択")):
+async def delete_messages(ctx, user: Option(discord.User, "ユーザーを選択/ユーザーIDを指定"), channel: Option(discord.TextChannel, "チャンネルを選択")): # type: ignore
     if ctx.author.guild_permissions.administrator:
         def is_user(m):
             return m.author == user
@@ -245,7 +245,7 @@ async def delete_messages(ctx, user: Option(discord.User, "ユーザーを選択
 
 # 指定ユーザーのメッセージ一括削除。全チャンネル。
 @bot.slash_command(name="delete_messages_all", description="全てのチャンネルのユーザーのメッセージを削除します")
-async def delete_messages_all(ctx, user: Option(discord.User, "ユーザーを選択/ユーザーIDを指定")):
+async def delete_messages_all(ctx, user: Option(discord.User, "ユーザーを選択/ユーザーIDを指定")): # type: ignore
     if ctx.author.guild_permissions.administrator:
         def is_user(m):
             return m.author == user
