@@ -97,6 +97,10 @@ async def event(ctx: discord.ApplicationContext, channel: discord.Option(discord
 
 @bot.event
 async def on_message(message):
+    # Ignore messages from the bot itself
+    if message.author.bot:
+        return
+
     # メッセージにtwitter.comまたはx.comのURLが含まれているか確認
     if contains_url(message, 'https://twitter.com/') or contains_url(message, 'https://x.com/'):
         # Embedを削除しようと試みる
@@ -145,6 +149,8 @@ async def on_message(message):
             if target_message.attachments:
                 for index, attachment in enumerate(target_message.attachments, start=1):
                     embed.add_field(name=f'画像 {index}', value=attachment.url, inline=True)
+                    # 画像をコメントとして送信。
+                    await message.channel.send(attachment.url)
 
             # 埋め込みメッセージを送信
             embed_message = await message.channel.send(embed=embed, view=view)
